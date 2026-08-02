@@ -1,0 +1,138 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Bot, MessageSquare, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChatInterface } from "@/components/ai/chat-interface";
+import { fetchAIEmployees, fetchConversations, fetchMessages, createConversation, DEMO_MESSAGES } from "@/services/data";
+import { cn, timeAgo } from "@/lib/utils";
+import { useSession } from "@/hooks/use-session";
+import { toast } from "sonner";
+
+export default function ChatPage() {
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const { data: convData, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: fetchConversations });
+  const { data: empData } = useQuery({ queryKey: ["ai-employees"], queryFn: fetchAIEmployees });
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const user = session?.user;
+      const firstEmp = employees[0];
+      if (!user || !user.orgId || !firstEmp) {
+        throw new Error("Create a workspace and deploy an AI employee first.");
+      }
+      const conv = await createConversation({
+        organization_id: user.orgId,
+        user_id: user.id,
+        ai_employee_id: firstEmp.id,
+        title: "New conversation",
+      });
+      if (!conv) throw new Error("Could not create conversation in the database.");
+      return conv;
+    },
+    onSuccess: (conv) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setActiveId(conv.id);
+      toast.success("Conversation started — say hello!");
+    },
+    onError: (e) => {
+      toast.info((e as Error).message);
+      setActiveId(null);
+    },
+  });
+
+  const conversations = convData?.source === "db" || convData?.source === "demo" ? convData.items : [];
+  const employees = empData?.source === "db" || empData?.source === "demo" ? empData.items : [];
+  const selected = conversations.find((c) => c.id === activeId) ?? conversations[0];
+  const selectedEmp = employees.find((e) => e.id === selected?.ai_employee_id);
+
+  const { data: msgData } = useQuery({
+    queryKey: ["messages", selected?.id],
+    queryFn: () => (selected ? fetchMessages(selected.id) : Promise.resolve({ source: "demo" as const, items: DEMO_MESSAGES })),
+    enabled: !!selected,
+  });
+
+  const messages =
+    msgData?.source === "db" || msgData?.source === "demo" ? msgData.items : DEMO_MESSAGES;
+
+  function handleNewChat() {
+    createMutation.mutate();
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-8.5rem)] min-h-[480px] overflow-hidden rounded-2xl border border-border-soft bg-card/50 backdrop-blur-xl">
+      {/* Conversations */}
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-border-soft sm:flex">
+        <div className="flex items-center justify-between border-b border-border-soft p-4">
+          <h2 className="text-sm font-bold text-white">Conversations</h2>
+          <Button size="iconSm" onClick={handleNewChat} aria-label="New chat">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 space-y-1 overflow-y-auto p-2 no-scrollbar">
+          {isLoading ? (
+            [1, 2, 3].map((i) => <Skeleton key={i} className="h-14 mx-1.5" />)
+          ) : (
+            conversations.map((c) => {
+              const emp = employees.find((e) => e.id === c.ai_employee_id);
+              const active = selected?.id === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveId(c.id)}
+                  className={cn(
+                    "w-full rounded-xl p-3 text-left transition-all cursor-pointer",
+                    active ? "bg-gradient-to-r from-primary/20 to-secondary/20 border border-primary/30" : "hover:bg-card-soft"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary">
+                      <Bot className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">{c.title ?? "Untitled"}</p>
+                      <p className="text-xs text-slate-500">
+                        {emp?.name ?? "AI Employee"} · {timeAgo(c.updated_at)}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+          {!isLoading && conversations.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-slate-500">No conversations yet.</p>
+          )}
+        </div>
+      </aside>
+
+      {/* Chat */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {selected ? (
+          <ChatInterface
+            employeeName={selectedEmp?.name ?? "AI Employee"}
+            conversationId={selected.id}
+            initialMessages={messages}
+          />
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-2xl shadow-primary/30">
+              <MessageSquare className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-white">Start a conversation</p>
+              <p className="mt-1 max-w-sm text-sm text-slate-400">
+                Delegate emails, quotations, CRM updates, reports and more to your AI employees.
+              </p>
+            </div>
+            <Button onClick={handleNewChat}><Plus className="h-4 w-4" /> New conversation</Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

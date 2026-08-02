@@ -1,0 +1,232 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── theme surface tokens (flip between light/dark) ───── */
+:root {
+  --background: #f6f8fc;
+  --background-soft: #eef2f7;
+  --card: #ffffff;
+  --card-soft: #eef2f7;
+  --border-soft: #e2e8f0;
+  --content: #0f172a;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+}
+
+.dark {
+  --background: #0b1120;
+  --background-soft: #0f172a;
+  --card: #111827;
+  --card-soft: #1a2332;
+  --border-soft: #263042;
+  --content: #e5e7eb;
+  --glass-bg: rgba(17, 24, 39, 0.55);
+}
+
+@theme inline {
+  /* ── AI Employee OS palette (brand colors, theme-agnostic) ── */
+  --color-primary: #4f46e5;
+  --color-primary-soft: #6366f1;
+  --color-secondary: #7c3aed;
+  --color-accent: #06b6d4;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* surfaces — resolve at runtime so `.dark` flips them */
+  --color-background: var(--background);
+  --color-background-soft: var(--background-soft);
+  --color-card: var(--card);
+  --color-card-soft: var(--card-soft);
+  --color-border-soft: var(--border-soft);
+  --color-content: var(--content);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* ── animations ─────────────────────────────────────── */
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite;
+  --animate-gradient-x: gradient-x 9s ease infinite;
+  --animate-pulse-glow: pulse-glow 3.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-marquee: marquee 36s linear infinite;
+  --animate-orbit: orbit 18s linear infinite;
+  --animate-typing: typing 1.2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-16px); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes typing {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* ── base ─────────────────────────────────────────────── */
+* {
+  border-color: var(--border-soft);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--content);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: rgba(79, 70, 229, 0.35);
+  color: #fff;
+}
+
+/* slim scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* ── reusable utility classes ─────────────────────────── */
+
+/* frosted glass panel */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* gradient text */
+.text-gradient {
+  background: linear-gradient(100deg, #818cf8 0%, #a78bfa 45%, #22d3ee 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: var(--animate-gradient-x);
+}
+
+/* gradient background blob */
+.bg-mesh {
+  background:
+    radial-gradient(at 20% 20%, rgba(79, 70, 229, 0.28) 0px, transparent 45%),
+    radial-gradient(at 80% 15%, rgba(124, 58, 237, 0.24) 0px, transparent 45%),
+    radial-gradient(at 75% 80%, rgba(6, 182, 212, 0.18) 0px, transparent 45%),
+    radial-gradient(at 15% 85%, rgba(34, 197, 94, 0.12) 0px, transparent 40%),
+    #0b1120;
+}
+
+/* animated gradient border card */
+.gradient-border {
+  position: relative;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(120deg, rgba(129, 140, 248, 0.5), rgba(167, 139, 250, 0.45), rgba(34, 211, 238, 0.4)) border-box;
+  border: 1px solid transparent;
+}
+
+/* primary gradient button */
+.btn-gradient {
+  background-image: linear-gradient(100deg, #4f46e5 0%, #7c3aed 55%, #06b6d4 130%);
+  background-size: 160% 160%;
+  transition: background-position 0.35s ease, box-shadow 0.3s ease, transform 0.15s ease;
+}
+.btn-gradient:hover {
+  background-position: 90% 50%;
+  box-shadow: 0 8px 32px -6px rgba(124, 58, 237, 0.55);
+}
+.btn-gradient:active {
+  transform: scale(0.98);
+}
+
+/* shimmer skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--card-soft) 25%, var(--card) 50%, var(--card-soft) 75%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* grid backdrop for hero sections */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 55%, transparent 100%);
+}
+
+/* hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── light-mode text remap ────────────────────────────── */
+/* In light mode, remap the dark-theme text utilities to ink colors.
+   Elements inside a `.dark` subtree (marketing/auth pages) stay dark. */
+html.light .text-white:not(.dark .text-white) { color: #0f172a; }
+html.light .text-slate-50:not(.dark .text-slate-50) { color: #0f172a; }
+html.light .text-slate-100:not(.dark .text-slate-100) { color: #0f172a; }
+html.light .text-slate-200:not(.dark .text-slate-200) { color: #1e293b; }
+html.light .text-slate-300:not(.dark .text-slate-300) { color: #334155; }
+html.light .text-slate-400:not(.dark .text-slate-400) { color: #64748b; }
+html.light .text-slate-500:not(.dark .text-slate-500) { color: #94a3b8; }
+html.light .text-slate-600:not(.dark .text-slate-600) { color: #475569; }
+
+/* remap bright colored text used on cards for light-mode contrast */
+html.light .text-cyan-300:not(.dark .text-cyan-300) { color: #0e7490; }
+html.light .text-green-400:not(.dark .text-green-400) { color: #15803d; }
+html.light .text-amber-400:not(.dark .text-amber-400) { color: #b45309; }
+html.light .text-red-400:not(.dark .text-red-400) { color: #b91c1c; }
+html.light .text-violet-400:not(.dark .text-violet-400) { color: #7c3aed; }
+
+/* keep white text on gradient/chip surfaces in light mode */
+html.light :is(.btn-gradient, .bg-gradient-to-br, .bg-gradient-to-tr, .bg-gradient-to-bl, .bg-gradient-to-tl, .bg-gradient-to-r, .bg-gradient-to-l, .from-primary, .from-secondary, .from-accent).text-white:not(.dark .text-white),
+html.light :is(.btn-gradient, .bg-gradient-to-br, .bg-gradient-to-tr, .bg-gradient-to-bl, .bg-gradient-to-tl, .bg-gradient-to-r, .bg-gradient-to-l, .from-primary, .from-secondary, .from-accent) .text-white:not(.dark .text-white) { color: #fff; }
+
+/* avatar initials sit on inline gradient backgrounds */
+html.light .rounded-full.text-white:not(.dark .text-white) { color: #fff; }
