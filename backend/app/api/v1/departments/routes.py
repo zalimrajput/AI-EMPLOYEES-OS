@@ -3,60 +3,26 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.api.v1._crud import require_org_admin, require_org_member
 from app.core.auth import get_current_user
-from app.models.role import Role
-from app.models.user import User
-from app.models.user_role import UserRole
-from app.schemas.department import DepartmentCreate, DepartmentOut
+from app.core.database import get_db
+from app.schemas.department import (
+    DepartmentCreate,
+    DepartmentOut,
+    DepartmentPatch,
+)
 from app.services.department_service import (
     create_department,
     delete_department,
+    get_department,
     list_org_departments,
+    update_department,
 )
-
-
-# Roles that may administer an organization (create/delete departments).
-ADMIN_ROLE_NAMES = {"Company Admin", "CEO / Executive", "Owner", "Admin"}
-
-
-def _require_org_admin(
-    db: Session,
-    user_id,
-    organization_id
-) -> None:
-    """Raise 403 unless the user holds an org-admin role for the organization."""
-    is_admin = db.query(UserRole).join(
-        Role, UserRole.role_id == Role.id
-    ).filter(
-        UserRole.user_id == user_id,
-        UserRole.organization_id == organization_id,
-        Role.name.in_(ADMIN_ROLE_NAMES),
-    ).first()
-    if is_admin is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Only organization admins can manage departments"
-        )
-
-
-def _require_org_member(
-    db: Session,
-    current_user: dict,
-):
-    """Resolve the caller's user row; raise 403 unless they belong to an org."""
-    me = db.query(User).filter(User.id == current_user.get("sub")).first()
-    if me is None or me.organization_id is None:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not a member of any organization"
-        )
-    return me
 
 
 router = APIRouter(
     prefix="/departments",
-    tags=["Departments"]
+    tags=["Departments"],
 )
 
 
@@ -64,9 +30,9 @@ router = APIRouter(
 # Protected endpoint: lists all departments of the caller's organization.
 def list_departments(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
-    me = _require_org_member(db, current_user)
+    me = require_org_member(db, current_user)
     return list_org_departments(db, me.organization_id)
 
 
@@ -75,10 +41,10 @@ def list_departments(
 def create_department_route(
     data: DepartmentCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
-    me = _require_org_member(db, current_user)
-    _require_org_admin(db, me.id, me.organization_id)
+    me = require_org_member(db, current_user)
+    require_org_admin(db, me.id, me.organization_id)
     try:
         return create_department(
             db,
@@ -87,10 +53,43 @@ def create_department_route(
             data.description,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{department_id}", response_model=DepartmentOut)
+# Protected endpoint: reads one department of the caller's organization.
+def get_department_route(
+    department_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    me = require_org_member(db, current_user)
+    try:
+        return get_department(db, department_id, me.organization_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/{department_id}", response_model=DepartmentOut)
+# Protected endpoint: org admin updates a department in their organization.
+def update_department_route(
+    department_id: UUID,
+    data: DepartmentPatch,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    me = require_org_member(db, current_user)
+    require_org_admin(db, me.id, me.organization_id)
+    try:
+        return update_department(
+            db,
+            department_id,
+            me.organization_id,
+            name=data.name,
+            description=data.description,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/{department_id}")
@@ -98,10 +97,10 @@ def create_department_route(
 def remove_department(
     department_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
-    me = _require_org_member(db, current_user)
-    _require_org_admin(db, me.id, me.organization_id)
+    me = require_org_member(db, current_user)
+    require_org_admin(db, me.id, me.organization_id)
     try:
         return delete_department(
             db,
@@ -109,7 +108,4 @@ def remove_department(
             me.organization_id,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=400, detail=str(e))

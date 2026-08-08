@@ -35,6 +35,7 @@ class Meeting(Base):
     transcript = Column(Text)
     summary = Column(Text)
     action_items = Column(JSONB)
+    external_event_id = Column(Text)
 
     created_at = Column(
         DateTime(timezone=True),

@@ -1,0 +1,98 @@
+[
+  {
+    "label": "1. Plain question (no tool)",
+    "message": "What can you help me with as my sales assistant? Keep it to two sentences.",
+    "reply": "I can manage your pipeline by tracking deals, following up on leads, and logging outreach activities directly in the CRM. I\u2019ll also pull real customer and lead data to give you actionable insights and help you prioritize high\u2011value prospects.",
+    "tools": []
+  },
+  {
+    "label": "2. Single tool call",
+    "message": "How many leads are in our pipeline right now? Please list their names and scores.",
+    "reply": "Here are the leads currently in our pipeline (up to the 100\u2011lead limit):\n\n| Lead ID | Name          | Score |\n|---------|---------------|-------|\n| 8f00ef1e\u20110750\u2011480a\u2011a8b3\u20115067b15194ff | Acme Corp | 80 |\n| 45d1614e\u20111b6d\u20114000\u20119c39\u2011bee976e8a039 | Globex Inc | 55 |\n| eea2573c\u20110fb0\u2011498a\u2011b8c8\u2011d6ee0db14ece | Initech | 90 |\n\n**Next steps**  \n- **Acme Corp** (Score\u202f80) \u2013 new lead; consider a quick introductory call or email to gauge interest.  \n- **Globex Inc** (Score\u202f55) \u2013 contacted; follow up with a tailored proposal or demo.  \n- **Initech** (Score\u202f90) \u2013 qualified; schedule a detailed discovery meeting and move to the proposal stage.  \n\nLet me know if you\u2019d like to add activities, set reminders, or dive deeper into any of these leads!",
+    "tools": [
+      {
+        "tool": "list_leads",
+        "arguments": {
+          "limit": 100
+        },
+        "result": [
+          {
+            "id": "8f00ef1e-0750-480a-a8b3-5067b15194ff",
+            "name": "Acme Corp",
+            "email": "sales@acme.com",
+            "company": "Acme Corp",
+            "status": "new",
+            "score": 80
+          },
+          {
+            "id": "45d1614e-1b6d-4000-9c39-bee976e8a039",
+            "name": "Globex Inc",
+            "email": "hello@globex.com",
+            "company": "Globex Inc",
+            "status": "contacted",
+            "score": 55
+          },
+          {
+            "id": "eea2573c-0fb0-498a-b8c8-d6ee0db14ece",
+            "name": "Initech",
+            "email": "info@initech.com",
+            "company": "Initech",
+            "status": "qualified",
+            "score": 90
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "label": "3. Multi-step tool use (2+ calls)",
+    "message": "Check our leads, then look up the customer Acme Corp and tell me their email address \u2014 how many leads do we have in total?",
+    "reply": "Here\u2019s what I found:\n\n| Lead ID | Name        | Email              | Status   | Score |\n|---------|-------------|--------------------|----------|-------|\n| 8f00ef1e | Acme Corp   | sales@acme.com     | new      | 80    |\n| 45d1614e | Globex Inc  | hello@globex.com   | contacted | 55   |\n| eea2573c | Initech     | info@initech.com   | qualified | 90   |\n\n**Total leads:** 3\n\n**Customer lookup for \u201cAcme Corp\u201d**  \nI ran a search in the CRM for a customer record named \u201cAcme Corp\u201d but no customer entry was returned. The only matching record is the lead above, whose email is **sales@acme.com**.\n\n**Next steps**\n\n1. **Create a customer record** for Acme Corp if you want to track them as a customer rather than a lead.  \n2. **Convert the lead** to a customer once you\u2019ve confirmed the opportunity.  \n3. If you need any follow\u2011up activities (e.g., call, email), let me know and I can log them for you.",
+    "tools": [
+      {
+        "tool": "list_leads",
+        "arguments": {
+          "limit": 100
+        },
+        "result": [
+          {
+            "id": "8f00ef1e-0750-480a-a8b3-5067b15194ff",
+            "name": "Acme Corp",
+            "email": "sales@acme.com",
+            "company": "Acme Corp",
+            "status": "new",
+            "score": 80
+          },
+          {
+            "id": "45d1614e-1b6d-4000-9c39-bee976e8a039",
+            "name": "Globex Inc",
+            "email": "hello@globex.com",
+            "company": "Globex Inc",
+            "status": "contacted",
+            "score": 55
+          },
+          {
+            "id": "eea2573c-0fb0-498a-b8c8-d6ee0db14ece",
+            "name": "Initech",
+            "email": "info@initech.com",
+            "company": "Initech",
+            "status": "qualified",
+            "score": 90
+          }
+        ]
+      },
+      {
+        "tool": "search_crm",
+        "arguments": {
+          "entity": "customer",
+          "limit": 10,
+          "query": "Acme Corp"
+        },
+        "result": {
+          "customers": [],
+          "leads": []
+        }
+      }
+    ]
+  }
+]

@@ -24,3 +24,8 @@ def health():
         "status": "ok",
         "database": database_status
     }
+
+
+@router.get("")
+def health_no_slash():
+    return health()

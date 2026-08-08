@@ -8,6 +8,11 @@ class DepartmentCreate(BaseModel):
     description: str | None = None
 
 
+class DepartmentPatch(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
 class DepartmentOut(BaseModel):
     id: UUID
     organization_id: UUID

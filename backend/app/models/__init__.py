@@ -8,6 +8,9 @@ from app.models.department import Department
 from app.models.organization_settings import OrganizationSettings
 from app.models.integration import Integration
 from app.models.platform import PlatformRole, PlatformSetting, PlatformLog
+from app.models.module import Module
+from app.models.org_module import OrgModule
+from app.models.widget import Widget
 
 from app.models.ai_employee import AIEmployee
 from app.models.ai_conversation import AIConversation
@@ -71,6 +74,9 @@ __all__ = [
     "PlatformRole",
     "PlatformSetting",
     "PlatformLog",
+    "Module",
+    "OrgModule",
+    "Widget",
 
     "AIEmployee",
     "AIConversation",

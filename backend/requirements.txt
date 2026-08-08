@@ -1,25 +1,50 @@
-fastapi
-uvicorn
-python-dotenv
-pydantic
-pydantic-settings
-sqlalchemy
-asyncpg
-alembic
-supabase
-python-multipart
-celery
-redis
-httpx
-openai
-anthropic
-google-generativeai
-langchain
-langchain-community
-pgvector
-pandas
-openpyxl
-reportlab
-pillow
-websockets
-python-jose[cryptography]
+# --- Web framework --------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# --- Validation / configuration --------------------------------------------
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+email-validator==2.2.0
+pydantic[email]==2.10.4
+
+# --- Database ---------------------------------------------------------------
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
+pgvector==0.3.6
+
+# --- Auth / security ---------------------------------------------------------
+python-jose[cryptography]==3.3.0
+cryptography==44.0.0
+
+# --- HTTP client -------------------------------------------------------------
+httpx==0.28.1
+
+# --- Async queue / workers ---------------------------------------------------
+celery==5.4.0
+redis==5.2.1
+
+# --- AI / LLM clients ---------------------------------------------------------
+openai==1.59.7
+anthropic==0.42.0
+google-generativeai==0.8.3
+reportlab==4.2.5
+pillow==11.1.0
+pandas==2.2.3
+openpyxl==3.1.5
+websockets==14.1
+
+# --- Document parsing (RAG ingestion) ---------------------------------------
+pypdf==5.1.0
+python-docx==1.1.2
+pytesseract==0.3.13
+PyMuPDF==1.28.2
+
+# --- Payments & QR codes (customer invoice payment links) --------------------
+stripe==15.4.0
+qrcode[pil]==8.2
+
+# --- Testing -----------------------------------------------------------------
+pytest==8.3.4

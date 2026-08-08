@@ -40,6 +40,7 @@ class EmailThread(Base):
     participants = Column(JSONB, default={})
     summary = Column(Text)
     ai_priority = Column(Text, default="normal")
+    category = Column(Text)
 
     created_at = Column(
         DateTime(timezone=True),

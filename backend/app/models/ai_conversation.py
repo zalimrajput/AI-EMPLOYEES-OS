@@ -34,7 +34,7 @@ class AIConversation(Base):
     ai_employee_id = Column(
         UUID(as_uuid=True),
         ForeignKey("ai_employees.id"),
-        nullable=False
+        nullable=True
     )
 
 

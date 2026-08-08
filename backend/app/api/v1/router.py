@@ -30,6 +30,7 @@ from app.api.v1.tasks.routes import router as tasks_router
 from app.api.v1.webhooks.routes import router as webhooks_router
 from app.api.v1.whatsapp.routes import router as whatsapp_router
 from app.api.v1.workflows.routes import router as workflows_router
+from app.api.v1.notifications.routes import router as notifications_router
 
 
 router = APIRouter()
@@ -65,3 +66,4 @@ router.include_router(tasks_router)
 router.include_router(webhooks_router)
 router.include_router(whatsapp_router)
 router.include_router(workflows_router)
+router.include_router(notifications_router)
