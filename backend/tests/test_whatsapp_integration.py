@@ -269,6 +269,30 @@ def test_webhook_without_integration_is_dropped(db):
 
 
 @pytest.mark.db
+def test_webhook_unresolvable_sender_returns_200(db):
+    """Meta's webhook contract requires 200 for 'received, no further action
+    needed'. A message from an unrecognized phone_number_id must not produce a
+    non-200 status that triggers aggressive retries."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    org = _org(db)
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/v1/whatsapp/webhook",
+                json=_webhook_payload(),
+            )
+        assert resp.status_code == 200
+        assert resp.json()["processed"] == 0
+        assert resp.json()["errors"] == []
+    finally:
+        _teardown(db, org)
+
+
+@pytest.mark.db
 def test_webhook_org_isolation(db):
     """Two tenants on different phone numbers must never cross-resolve."""
     org_a = _org(db)
