@@ -19,7 +19,7 @@ from app.ai.tools import get_tool
 
 logger = logging.getLogger("app.ai.engine")
 
-MAX_STEPS = 6
+MAX_STEPS = 12
 
 _TOOL_PROTOCOL = """\
 Use the provided functions whenever you need data from the workspace (leads,
@@ -64,10 +64,17 @@ def build_messages(
     user_message: str,
 ) -> list[dict]:
     """Assemble the chat history: system + memory + prior turns + user message."""
+    from datetime import date as _date
+
     tools = [t for t in (allowed_tools or []) if get_tool(t) is not None]
     system = agent.build_system_prompt(org_name=org_name)
     tools_block = ", ".join(sorted(tools)) if tools else "none"
-    system = f"{system}\n\nYou have access to these tools: {tools_block}.\n{_TOOL_PROTOCOL}"
+    system = (
+        f"{system}\n\nToday's date is {_date.today().isoformat()} "
+        "(YYYY-MM-DD). Use it whenever you must resolve relative dates like "
+        "'this Friday' or '+3 days'.\n\n"
+        f"You have access to these tools: {tools_block}.\n{_TOOL_PROTOCOL}"
+    )
 
     if memory:
         system = f"{system}\n\nRelevant workspace context:\n" + "\n\n".join(memory)
@@ -183,6 +190,13 @@ def run_agent(
             user_id,
             call.get("arguments") or {},
             allowed_tools=agent.allowed_tools,
+        )
+        logger.info(
+            "tool_call agent=%s tool=%s args=%s result=%s",
+            agent.key,
+            call["name"],
+            json.dumps(call.get("arguments") or {}, default=str),
+            json.dumps(tool_result, default=str)[:500],
         )
         messages.append(
             {

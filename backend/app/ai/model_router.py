@@ -42,9 +42,12 @@ def _provider_for(model: str) -> str:
 
 
 def _effective_provider(model: str, provider: str) -> str:
-    """Fall back to OpenRouter when an OpenAI-style model lacks the OpenAI key
-    but OpenRouter is configured (common in demo/self-host setups)."""
+    """Fall back to OpenRouter when a provider-specific model should go through OpenRouter."""
     if provider == "openai" and not settings.OPENAI_API_KEY and settings.OPENROUTER_API_KEY:
+        return "openrouter"
+    if provider == "google" and (not settings.GOOGLE_AI_KEY or "/" in model or ":" in model) and settings.OPENROUTER_API_KEY:
+        return "openrouter"
+    if provider == "anthropic" and (not settings.ANTHROPIC_API_KEY or "/" in model) and settings.OPENROUTER_API_KEY:
         return "openrouter"
     return provider
 
@@ -61,12 +64,16 @@ def _openrouter_headers() -> dict:
 def _openrouter_payload(
     model: str, messages: list[dict], temperature: float, stream: bool
 ) -> dict:
-    return {
+    payload = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "stream": stream,
     }
+    # Always cap output tokens: OpenRouter applies the model default (e.g.
+    # 65536 for gpt-5) when omitted, which low-budget accounts cannot afford.
+    payload["max_tokens"] = settings.AI_MAX_OUTPUT_TOKENS
+    return payload
 
 
 def complete(messages: list[dict], model: Optional[str] = None, temperature: float = 0.3) -> str:
@@ -150,6 +157,8 @@ def complete_with_tools(
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
+        elif provider == "openrouter":
+            payload["max_tokens"] = settings.AI_MAX_OUTPUT_TOKENS
         if provider == "openrouter":
             if not settings.OPENROUTER_API_KEY:
                 raise ModelRouterError("OPENROUTER_API_KEY is not configured")

@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     DEFAULT_AI_MODEL: str = "gpt-5"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSION: int = 1536
+    # Cap completion size so low-budget/free OpenRouter accounts (which reject
+    # the model default of 65536 output tokens) can still serve tool loops.
+    AI_MAX_OUTPUT_TOKENS: int = 640
 
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None

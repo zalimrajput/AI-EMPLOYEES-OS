@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AIMessage } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/hooks/use-session";
+import { api } from "@/lib/api/client";
 import { sendMessage } from "@/services/data";
 
 function TypingDots() {
@@ -95,21 +96,37 @@ export function ChatInterface({
       await sendMessage(conversationId, "user", text).catch(() => null);
     }
 
-    // simulate streaming reply
-    const reply = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+    // append typing dots immediately
+    const streamedId = `local-${Date.now() + 1}`;
     const streamed: AIMessage = {
-      id: `local-${Date.now() + 1}`,
+      id: streamedId,
       conversation_id: conversationId,
       role: "assistant",
       message: "",
     };
     setMessages((m) => [...m, streamed]);
 
+    // get response from backend or mock
+    let reply = "Sorry, I could not generate a response.";
+    if (!isDemo) {
+      try {
+        const res = await api.sendChatMessage({
+          conversation_id: conversationId,
+          message: text,
+        });
+        reply = res.message;
+      } catch (err) {
+        reply = `Error: ${(err as Error).message}`;
+      }
+    } else {
+      reply = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+    }
+
     const chars = reply.split("");
     for (let i = 0; i < chars.length; i++) {
       await new Promise((r) => setTimeout(r, 14));
       setMessages((m) =>
-        m.map((msg) => (msg.id === streamed.id ? { ...msg, message: reply.slice(0, i + 1) } : msg))
+        m.map((msg) => (msg.id === streamedId ? { ...msg, message: reply.slice(0, i + 1) } : msg))
       );
     }
     if (!isDemo) {

@@ -184,4 +184,11 @@ export const api = {
   // ── Analytics summary (live counts) ──────────────────────
   fetchAnalyticsSummary: () =>
     apiFetch<Record<string, number>>("/api/v1/analytics/summary"),
+
+  // ── AI Chat ──────────────────────────────────────────────
+  sendChatMessage: (body: { conversation_id: string; message: string }) =>
+    apiFetch<{ id: string; conversation_id: string; role: string; message: string }>(
+      "/api/v1/ai-chat/messages",
+      { method: "POST", body }
+    ),
 };
