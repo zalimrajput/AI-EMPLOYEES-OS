@@ -15,6 +15,23 @@ export interface SessionUser {
   enabledModules?: string[];
 }
 
+/**
+ * localStorage key holding the workspace the signup form could not create yet
+ * because Supabase email confirmation delayed the session. It is created right
+ * after the user verifies their inbox and signs in.
+ */
+export const PENDING_WORKSPACE_KEY = "aios:pending-workspace";
+
+/** The organization the user currently belongs to, or null. */
+export async function fetchUserOrgId(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+  return (data?.organization_id as string | null) ?? null;
+}
+
 /** Fetch the human roles assigned to a user (company roles + platform role). */
 export async function fetchUserRoles(userId: string): Promise<string[]> {
   const roles: string[] = [];

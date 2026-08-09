@@ -6,7 +6,7 @@ import { Building2, Loader2, Sparkles, User, Mail, Lock, ArrowRight } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUp } from "@/hooks/use-session";
+import { PENDING_WORKSPACE_KEY, signUp } from "@/hooks/use-session";
 import { api } from "@/lib/api/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -54,29 +54,36 @@ export function RegisterForm() {
     }
     setLoading(true);
     try {
+      // The workspace the signup is creating. When email confirmation blocks
+      // the session, this payload is stored and the org is created on first
+      // sign-in (login-form finishes the pending workspace).
+      const slug = form.company
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || `workspace-${Date.now().toString(36)}`;
+      const workspace = {
+        name: form.company,
+        slug,
+        country: form.country,
+        industry: "Technology",
+      };
+
       // 1. Create the Supabase Auth user (public).
       const res = await signUp(form.email, form.password, form.fullName);
 
       // If email confirmation is enabled (Supabase default), there is no
       // session yet — the user must verify their inbox before signing in.
       if (!res.session) {
-        toast.success("Account created! Check your inbox to verify your email, then sign in.");
+        localStorage.setItem(PENDING_WORKSPACE_KEY, JSON.stringify(workspace));
+        toast.success("Account created! Verify your email, then sign in to create your workspace.");
         router.push("/login");
         return;
       }
 
       // 2. Create the workspace via the protected FastAPI endpoint with the
       //    fresh session token — the backend assigns creator + membership.
-      const slug = form.company
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "") || `workspace-${Date.now().toString(36)}`;
-      await api.createOrganization({
-        name: form.company,
-        slug,
-        country: form.country,
-        industry: "Technology",
-      });
+      await api.createOrganization(workspace);
+      localStorage.removeItem(PENDING_WORKSPACE_KEY);
       toast.success("Workspace created! Welcome aboard 🎉");
       router.push("/dashboard");
     } catch (err) {

@@ -2,49 +2,60 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Building2, User, Wand2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fetchUserRoles, signIn } from "@/hooks/use-session";
+import {
+  fetchUserOrgId,
+  fetchUserRoles,
+  PENDING_WORKSPACE_KEY,
+  signIn,
+} from "@/hooks/use-session";
 import { homePathForRoles } from "@/lib/roles";
 import { supabase } from "@/lib/supabase/client";
+import { api } from "@/lib/api/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-
-/** Demo accounts seeded by backend/scripts/seed_demo_users.py. */
-const DEMO_ACCOUNTS = [
-  {
-    label: "Super Admin",
-    description: "All companies & platform",
-    email: "superadmin@demo.com",
-    password: "SuperAdmin@123",
-    icon: ShieldCheck,
-    className: "from-danger to-warning",
-  },
-  {
-    label: "Org Admin",
-    description: "Own company dashboards",
-    email: "orgadmin@demo.com",
-    password: "OrgAdmin@123",
-    icon: Building2,
-    className: "from-primary to-secondary",
-  },
-  {
-    label: "Employee",
-    description: "Role-based workspace",
-    email: "employee@demo.com",
-    password: "Employee@123",
-    icon: User,
-    className: "from-accent to-success",
-  },
-];
 
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /**
+   * Finish a workspace whose org could not be created at signup because email
+   * confirmation delayed the session. Returns whether the org was created and
+   * any error that prevented it. The pending payload is kept on failure so the
+   * next sign-in can retry.
+   */
+  async function finishPendingWorkspace(userId: string): Promise<{
+    created: boolean;
+    error: string | null;
+  }> {
+    const raw = localStorage.getItem(PENDING_WORKSPACE_KEY);
+    if (!raw) return { created: false, error: null };
+    try {
+      const orgId = await fetchUserOrgId(userId);
+      if (orgId) {
+        // Already in an org — nothing to create.
+        localStorage.removeItem(PENDING_WORKSPACE_KEY);
+        return { created: false, error: null };
+      }
+      const workspace = JSON.parse(raw) as {
+        name: string;
+        slug: string;
+        country: string;
+        industry?: string;
+      };
+      await api.createOrganization(workspace);
+      localStorage.removeItem(PENDING_WORKSPACE_KEY);
+      return { created: true, error: null };
+    } catch (err) {
+      return { created: false, error: (err as Error).message || "Could not create your workspace" };
+    }
+  }
 
   /** Shared: sign in with Supabase, then redirect by the user's role. */
   async function signInAndRedirect(email: string, password: string, successMessage: string) {
@@ -58,7 +69,23 @@ export function LoginForm() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const roles = session ? await fetchUserRoles(session.user.id) : [];
+      if (!session) return;
+      const roles = await fetchUserRoles(session.user.id);
+
+      // Signups delayed by email confirmation finish their workspace here.
+      const { created, error: workspaceError } = await finishPendingWorkspace(
+        session.user.id
+      );
+      if (created) {
+        toast.success("Workspace created! Welcome aboard 🎉");
+        router.push("/dashboard");
+        return;
+      }
+      if (workspaceError) {
+        toast.error(workspaceError);
+        router.push(homePathForRoles(roles));
+        return;
+      }
 
       toast.success(successMessage);
       router.push(homePathForRoles(roles));
@@ -74,13 +101,6 @@ export function LoginForm() {
     await signInAndRedirect(email, password, "Welcome back!");
   }
 
-  /** One-click demo login: fill the fields and sign in as that role. */
-  async function handleDemoLogin(email: string, password: string) {
-    setEmail(email);
-    setPassword(password);
-    await signInAndRedirect(email, password, `Signed in as ${email}`);
-  }
-
   async function handleOAuth(provider: "google" | "azure") {
     toast.info("Redirecting to sign-in…");
     // Supabase OAuth flows are wired via the Supabase project; the URL is
@@ -91,36 +111,6 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Demo logins — one-click role selector */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-primary-soft">
-          <Wand2 className="h-3.5 w-3.5" /> Try a demo role
-        </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {DEMO_ACCOUNTS.map((a) => {
-            const Icon = a.icon;
-            return (
-              <motion.button
-                key={a.email}
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                disabled={loading}
-                onClick={() => handleDemoLogin(a.email, a.password)}
-                className="flex items-center gap-2 rounded-lg border border-border-soft bg-card px-2.5 py-2 text-left transition-all hover:border-primary/50 hover:bg-card-soft cursor-pointer disabled:opacity-60"
-              >
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${a.className} text-white`}>
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-bold text-white">{a.label}</span>
-                  <span className="block truncate text-[10px] text-slate-500">{a.description}</span>
-                </span>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="grid grid-cols-2 gap-3">
         <Button type="button" variant="secondary" onClick={() => handleOAuth("google")}>
           <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
