@@ -9,11 +9,23 @@ from app.ai.tools.base import ToolSpec
 MASTER_KEY = "master"
 
 
+REQUIRED_ROLES = {
+    "sales": {"Company Admin", "CEO / Executive", "Sales Manager", "Sales Executive"},
+    "support": {"Company Admin", "CEO / Executive", "Customer Support"},
+    "finance": {"Company Admin", "CEO / Executive", "Finance Manager", "Accountant"},
+    "accountant": {"Company Admin", "CEO / Executive", "Finance Manager", "Accountant"},
+    "hr": {"Company Admin", "CEO / Executive", "HR Manager"},
+    "recruiter": {"Company Admin", "CEO / Executive", "HR Manager"},
+    "marketing": {"Company Admin", "CEO / Executive", "Marketing Manager"},
+    "operations": {"Company Admin", "CEO / Executive", "Operations Manager"},
+}
+
+
 def delegate_task(db, org_id, user_id, arguments: dict):
     """Run a sub-task against a specialist agent, in the same org/user.
 
-    Hard guard: never allow delegating to the master itself, and never allow
-    an unknown agent key. Failures are returned as a structured error dict.
+    Enforces Role-Based Access Control (RBAC) based on the database roles
+    assigned to the user_id within the organization.
     """
     agent_key = arguments.get("agent_key")
     instruction = arguments.get("instruction")
@@ -28,6 +40,28 @@ def delegate_task(db, org_id, user_id, arguments: dict):
     agent = agent_by_key(agent_key)
     if agent is None:
         return {"error": f"Unknown or disallowed agent_key: {agent_key}"}
+
+    # Fetch caller's roles
+    from sqlalchemy import text
+    role_rows = db.execute(
+        text(
+            "SELECT r.name FROM roles r "
+            "JOIN user_roles ur ON ur.role_id = r.id "
+            "WHERE ur.user_id = :uid AND ur.organization_id = :oid"
+        ),
+        {"uid": user_id, "oid": org_id}
+    ).fetchall()
+    user_roles = {r[0] for r in role_rows}
+
+    # Enforce access authorization
+    required = REQUIRED_ROLES.get(agent_key)
+    if required and not user_roles.intersection(required):
+        return {
+            "error": (
+                f"Access Denied: Your account roles ({', '.join(user_roles) or 'none'}) "
+                f"are not authorized to delegate tasks to the {agent_key} agent."
+            )
+        }
 
     try:
         from app.ai.engine import run_agent
