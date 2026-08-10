@@ -72,3 +72,29 @@ async def oauth_callback(
         "provider": provider,
         "integration_id": str(row.id),
     }
+
+
+from pydantic import BaseModel
+
+class TokenConnection(BaseModel):
+    provider: str
+    access_token: str
+    refresh_token: str | None = None
+
+@router.post("/integrations/connect-token", tags=["Integrations"])
+def connect_token(
+    data: TokenConnection,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    me = require_org_member(db, current_user)
+    tokens = {
+        "access_token": data.access_token,
+        "refresh_token": data.refresh_token,
+    }
+    row = save_credentials(db, me.organization_id, data.provider, tokens)
+    return {
+        "connected": True,
+        "provider": data.provider,
+        "integration_id": str(row.id),
+    }

@@ -27,7 +27,8 @@ import { Tabs } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/hooks/use-session";
-import { addDepartment, fetchOrgDepartments, fetchOrgMembers, fetchOrgModules, fetchOrgRoles, inviteMember, removeDepartment, removeMember, updateMyOrgModule } from "@/services/admin";
+import { addDepartment, fetchOrgDepartments, fetchOrgMembers, fetchOrgModules, fetchOrgRoles, inviteMember, removeDepartment, removeMember, updateMyOrgModule, connectIntegrationToken, disconnectIntegration } from "@/services/admin";
+import { supabase } from "@/lib/supabase/client";
 import { MODULE_BY_KEY, TOGGLEABLE_MODULES } from "@/lib/modules";
 import { ROLE_META } from "@/lib/roles";
 import { cn } from "@/lib/utils";
@@ -35,14 +36,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 const INTEGRATIONS = [
-  { name: "Gmail", desc: "Draft, send & summarize emails", emoji: "📧", connected: true },
-  { name: "Outlook", desc: "Microsoft 365 mail & calendar", emoji: "📅", connected: false },
-  { name: "WhatsApp Business", desc: "Customer support on WhatsApp", emoji: "💬", connected: true },
-  { name: "Google Calendar", desc: "Meetings & scheduling", emoji: "🗓️", connected: true },
-  { name: "Slack", desc: "Team notifications & approvals", emoji: "⚡", connected: false },
-  { name: "QuickBooks", desc: "Accounting & invoicing sync", emoji: "🧾", connected: false },
-  { name: "Stripe", desc: "Payments & billing", emoji: "💳", connected: true },
-  { name: "Google Drive", desc: "Document storage & OCR", emoji: "☁️", connected: false },
+  { name: "Gmail", key: "gmail", desc: "Draft, send & summarize emails", emoji: "📧" },
+  { name: "Outlook", key: "outlook", desc: "Microsoft 365 mail & calendar", emoji: "📅" },
+  { name: "WhatsApp Business", key: "whatsapp", desc: "Customer support on WhatsApp", emoji: "💬" },
+  { name: "Google Calendar", key: "google-calendar", desc: "Meetings & scheduling", emoji: "🗓️" },
+  { name: "Slack", key: "slack", desc: "Team notifications & approvals", emoji: "⚡" },
+  { name: "QuickBooks", key: "accounting", desc: "Accounting & invoicing sync", emoji: "🧾" },
+  { name: "Stripe", key: "stripe", desc: "Payments & billing", emoji: "💳" },
+  { name: "Google Drive", key: "storage", desc: "Document storage & OCR", emoji: "☁️" },
 ];
 
 export default function SettingsPage() {
@@ -50,6 +51,21 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState("users");
   const [apiKey] = useState("sk-ai-os-••••••••••••••••••••");
+
+  const [connectingProvider, setConnectingProvider] = useState<{ name: string; key: string } | null>(null);
+  const [tokenForm, setTokenForm] = useState({ access_token: "", refresh_token: "" });
+  const [submittingToken, setSubmittingToken] = useState(false);
+
+  const { data: integrations, refetch: refetchIntegrations } = useQuery({
+    queryKey: ["org-integrations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("id, provider, connected");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ["org-members"],
@@ -73,6 +89,35 @@ export default function SettingsPage() {
   function copyKey() {
     navigator.clipboard?.writeText(apiKey).catch(() => {});
     toast.success("API key copied");
+  }
+
+  async function handleDisconnect(integrationId: string) {
+    const { error } = await disconnectIntegration(integrationId);
+    if (error) return toast.error(error);
+    toast.success("Disconnected successfully");
+    refetchIntegrations();
+  }
+
+  async function handleConnectSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!connectingProvider) return;
+    if (!tokenForm.access_token.trim()) {
+      return toast.error("Access token is required");
+    }
+    setSubmittingToken(true);
+    const { error } = await connectIntegrationToken({
+      provider: connectingProvider.key,
+      access_token: tokenForm.access_token.trim(),
+      refresh_token: tokenForm.refresh_token.trim() || undefined,
+    });
+    setSubmittingToken(false);
+    if (error) {
+      return toast.error(error);
+    }
+    toast.success(`${connectingProvider.name} connected successfully!`);
+    setTokenForm({ access_token: "", refresh_token: "" });
+    setConnectingProvider(null);
+    refetchIntegrations();
   }
 
   async function toggleModule(key: string, enabled: boolean) {
@@ -296,19 +341,92 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
-                {INTEGRATIONS.map((i) => (
-                  <div key={i.name} className="flex items-center gap-3 rounded-xl border border-border-soft bg-card-soft/40 p-4">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-card text-xl">{i.emoji}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-white">{i.name}</p>
-                      <p className="truncate text-xs text-slate-500">{i.desc}</p>
+                {INTEGRATIONS.map((i) => {
+                  const row = (integrations ?? []).find((row: any) => row.provider === i.key);
+                  const isConnected = !!row && row.connected !== false;
+                  return (
+                    <div key={i.name} className="flex items-center gap-3 rounded-xl border border-border-soft bg-card-soft/40 p-4">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-card text-xl">{i.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-white">{i.name}</p>
+                        <p className="truncate text-xs text-slate-500">{i.desc}</p>
+                      </div>
+                      {isConnected ? (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="success">Connected</Badge>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-7 w-7 text-slate-400 hover:text-red-400"
+                            onClick={() => handleDisconnect(row.id)}
+                            aria-label="Disconnect"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setConnectingProvider(i)}
+                        >
+                          Connect
+                        </Button>
+                      )}
                     </div>
-                    <Badge variant={i.connected ? "success" : "secondary"}>
-                      {i.connected ? "Connected" : "Connect"}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {connectingProvider && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-md rounded-2xl border border-primary/20 bg-card p-6 shadow-2xl">
+                    <h3 className="text-lg font-bold text-white mb-1">Connect {connectingProvider.name}</h3>
+                    <p className="text-xs text-slate-400 mb-4 font-normal leading-relaxed">
+                      Enter the OAuth Access Token for {connectingProvider.name} to connect it to your workspace.
+                    </p>
+                    <form onSubmit={handleConnectSubmit} className="space-y-4">
+                      <div className="space-y-1.5 text-left">
+                        <Label className="text-slate-300 text-xs font-bold">Access Token</Label>
+                        <Input
+                          type="password"
+                          value={tokenForm.access_token}
+                          onChange={(e) => setTokenForm(t => ({ ...t, access_token: e.target.value }))}
+                          placeholder="Paste access token..."
+                          className="font-mono text-sm border-border-soft bg-card-soft/40"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5 text-left">
+                        <Label className="text-slate-300 text-xs font-bold">Refresh Token (Optional)</Label>
+                        <Input
+                          type="password"
+                          value={tokenForm.refresh_token}
+                          onChange={(e) => setTokenForm(t => ({ ...t, refresh_token: e.target.value }))}
+                          placeholder="Paste refresh token (optional)..."
+                          className="font-mono text-sm border-border-soft bg-card-soft/40"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            setConnectingProvider(null);
+                            setTokenForm({ access_token: "", refresh_token: "" });
+                          }}
+                          disabled={submittingToken}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={submittingToken}>
+                          {submittingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </>
         )}

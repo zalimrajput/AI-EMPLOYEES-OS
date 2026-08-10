@@ -298,3 +298,56 @@ export async function removeDepartment(
     return { error: (err as Error).message };
   }
 }
+
+/** Connect an integration by submitting the token manually. */
+export async function connectIntegrationToken(input: {
+  provider: string;
+  access_token: string;
+  refresh_token?: string;
+}): Promise<{ error: string | null }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Not authenticated");
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+    const res = await fetch(`${BACKEND_URL}/api/v1/integrations/connect-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(input)
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail ?? "Failed to connect integration");
+    }
+    return { error: null };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
+/** Disconnect an integration by deleting the row. */
+export async function disconnectIntegration(integrationId: string): Promise<{ error: string | null }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Not authenticated");
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+    const res = await fetch(`${BACKEND_URL}/api/v1/integrations/${integrationId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail ?? "Failed to disconnect integration");
+    }
+    return { error: null };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
